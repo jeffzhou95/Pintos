@@ -96,7 +96,8 @@ start_process (void *file_name_)
 int
 process_wait (tid_t child_tid UNUSED) 
 {
-  while(1) ;
+  while(!thread_current()->exit) ;
+  //sleep(10);
   return -1;
 }
 
@@ -473,10 +474,14 @@ setup_stack (void **esp, char *file_name)
   for (cmd = strtok_r (file_name, " ", &saveptr), j = 0; cmd != NULL;
     cmd = strtok_r (NULL, " ", &saveptr), j++)
     {
-      *esp = *esp - strlen(cmd) + 1;
+      *esp = *esp - strlen(cmd) - 1;
       memcpy(*esp, cmd, strlen(cmd) + 1);
+      // printf("hex\n");
+      // hex_dump(*esp, *esp, PHYS_BASE-(*esp), true);
       argv[j]= *esp;
     }
+
+  // printf("argv: %s\n", argv[0]);
 
   // complement esp with 0s
   while((int)*esp % 4 != 0) {
@@ -504,6 +509,7 @@ setup_stack (void **esp, char *file_name)
   *esp= *esp - sizeof(int);
   memcpy(*esp, &int_temp, sizeof(int));
 
+  // hex_dump(*esp, *esp, PHYS_BASE-(*esp), true);
 
   return success;
 }
