@@ -93,6 +93,12 @@ struct thread
     /* Shared between thread.c and synch.c. */
     struct list_elem elem;              /* List element. */
 
+    bool exit;
+    //int exit_error;
+    struct thread *parent;
+    //struct list files;
+    //int fd_count;
+
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
     uint32_t *pagedir;                  /* Page directory. */
