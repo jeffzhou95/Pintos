@@ -3,6 +3,7 @@
 #include <syscall-nr.h>
 #include "threads/interrupt.h"
 #include "threads/thread.h"
+#include "threads/vaddr.h"
 #include "process.h"
 
 static void syscall_handler (struct intr_frame *);
@@ -21,8 +22,16 @@ syscall_handler (struct intr_frame *f UNUSED)
 {
   // printf("system cal!\n");
 
+
   int *ptr = f->esp;
+
+  if (!is_user_vaddr(ptr) || !pagedir_get_page(thread_current()->pagedir, ptr))
+  {
+    exit(-1);
+  } 
+
   int system_call = *ptr;
+
   switch (system_call)
   {
 	case SYS_WRITE:
@@ -38,12 +47,22 @@ syscall_handler (struct intr_frame *f UNUSED)
 
     case SYS_EXIT:
 	// printf("sys exit!\n");
-    thread_current()->parent->exit = true;
-    //thread_current()->exit_error = *(p+1);
-    thread_exit();
+        exit(*(ptr+1));
+    // thread_current()->parent->exit = true;
+    // thread_current()->exit_error = *(p+1);
+    // thread_exit();
     break;
 
 	default:
 	printf("No match\n");
   }
+}
+
+void
+exit (int status)
+{
+  struct thread *cur = thread_current();
+  cur->parent->exit = true;
+  printf("%s: exit(%d)\n", cur->name, status);
+  thread_exit();
 }
