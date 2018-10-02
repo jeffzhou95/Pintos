@@ -4,6 +4,8 @@
 #include <debug.h>
 #include <list.h>
 #include <stdint.h>
+#include <kernel/list.h>
+#include <threads/synch.h>
 
 /* States in a thread's life cycle. */
 enum thread_status
@@ -96,8 +98,9 @@ struct thread
     bool exit;
     //int exit_error;
     struct thread *parent;
-    //struct list files;
-    //int fd_count;
+    struct list files;
+    int fd_count;
+    int ret;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
