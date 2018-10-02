@@ -13,6 +13,12 @@ int myExec(char *file_name);
 
 extern bool running;
 
+struct proc_file {
+  struct file *ptr;
+  int fd;
+  struct list_elem elem;
+};
+
 void
 syscall_init (void)
 {
@@ -49,7 +55,7 @@ syscall_handler (struct intr_frame *f UNUSED)
   	break;
 
     case SYS_EXIT:
-    exit(*(ptr+1));
+    BadExit(*(ptr + 1));
     break;
 
     case SYS_EXEC:
@@ -65,12 +71,6 @@ syscall_handler (struct intr_frame *f UNUSED)
 
 
     case SYS_CREATE:
-    // if(!is_user_vaddr(*(ptr + 5))) BadExit(-1);
-    // if(*(ptr + 4) == NULL) {
-    //   f->eax = -1;
-    //   BadExit(-1);
-    // }
-    //if (!pagedir_get_page(thread_current()->pagedir, ptr + 4)) BadExit(-1);
     BadAddr(ptr + 5);
     BadAddr(*(ptr + 4));
     acquire_filesys_lock();
@@ -82,11 +82,27 @@ syscall_handler (struct intr_frame *f UNUSED)
     BadAddr(ptr + 1);
     BadAddr(*(ptr + 1));
     acquire_filesys_lock();
-    if(filesys_remove(*(ptr + 1))==NULL)
-      f->eax = false;
-    else
-      f->eax = true;
+    if(filesys_remove(*(ptr + 1))==NULL) f->eax = false;
+    else f->eax = true;
     release_filesys_lock();
+    break;
+
+    case SYS_OPEN:
+    BadAddr(ptr + 1);
+    BadAddr(*(ptr + 1));
+    acquire_filesys_lock();
+    struct file *file_ptr = filesys_open (*(ptr + 1));
+    release_filesys_lock();
+    if(file_ptr==NULL)
+      f->eax = -1;
+    else {
+      struct proc_file *pfile = malloc(sizeof(*pfile));
+      pfile->ptr = file_ptr;
+      pfile->fd = thread_current()->fd_count;
+      thread_current()->fd_count++;
+      list_push_back(&thread_current()->files, &pfile->elem);
+      f->eax = pfile->fd;
+    }
     break;
 
 
@@ -145,11 +161,16 @@ exit (int status)
 {
   struct thread *cur = thread_current();
   cur->parent->exit = true;
+  if(status < 0) status = -1;
   printf("%s: exit(%d)\n", cur->name, status);
   thread_exit();
 }
 
 void BadExit(int status) {
-  thread_current()->ret = status;
+  struct thread *cur = thread_current();
+  cur->parent->exit = true;
+  if(status < 0) status = -1;
+  printf("%s: exit(%d)\n", cur->name, status);
+  cur->ret = status;
   thread_exit();
 }

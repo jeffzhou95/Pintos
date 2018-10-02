@@ -98,8 +98,8 @@ struct thread
     bool exit;
     //int exit_error;
     struct thread *parent;
-    //struct list files;
-    //int fd_count;
+    struct list files;
+    int fd_count;
     int ret;
 
 #ifdef USERPROG
