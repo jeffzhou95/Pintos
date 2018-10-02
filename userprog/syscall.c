@@ -29,26 +29,12 @@ syscall_init (void)
 static void
 syscall_handler (struct intr_frame *f UNUSED)
 {
-  // printf("system cal!\n");
-
-
   int *ptr = f->esp;
-  BadAddr(ptr);
-
-  // if (!is_user_vaddr(*ptr) || !pagedir_get_page(thread_current()->pagedir, ptr))
-  // {
-  //   exit(-1);
-  // } 
-  
+  BadAddr(ptr); 
   int system_call = *ptr;
-
-  //if(!is_user_vaddr(*ptr)) BadExit(-1);
 
   switch (system_call)
   {
-  	case SYS_WRITE:
-  	if (*(ptr+5) == 1) putbuf(*(ptr+6), *(ptr+7));
-  	break;
 
   	case SYS_HALT:
   	shutdown_power_off();
@@ -91,7 +77,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     BadAddr(ptr + 1);
     BadAddr(*(ptr + 1));
     acquire_filesys_lock();
-    struct file *file_ptr = filesys_open (*(ptr + 1));
+    struct file *file_ptr = filesys_open(*(ptr + 1));
     release_filesys_lock();
     if(file_ptr==NULL)
       f->eax = -1;
@@ -105,20 +91,98 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     break;
 
+    case SYS_WRITE:
+    BadAddr(ptr + 7);
+    BadAddr(*(ptr + 6));
+    if(*(ptr + 5) == 1) {
+      putbuf(*(ptr + 6), *(ptr + 7));
+      f->eax = *(ptr + 7);
+    }
+    else {
+      struct list_elem *e_write;
+      struct proc_file *file_ptr_write = malloc(sizeof(*file_ptr_write));
+      for(e_write = list_begin(&thread_current()->files); e_write != list_end(&thread_current()->files); e_write = list_next(e_write)) {
+        struct proc_file *f = list_entry (e_write, struct proc_file, elem);
+        if(f->fd == *(ptr + 5)) {
+          file_ptr_write = f;
+          break;
+        }
+      } 
+      if(file_ptr_write != NULL) {
+        acquire_filesys_lock();
+        f->eax = file_write(file_ptr_write->ptr, *(ptr + 6), *(ptr + 7));
+        release_filesys_lock();
+      }else f->eax = -1;      
+    }
+    break;
 
-    // case SYS_SEEK:
-    // BadAddr(ptr + 5);
-    // acquire_filesys_lock();
-    // file_seek(list_search(&thread_current()->files, *(ptr + 4))->ptr,*(ptr + 5));
-    // release_filesys_lock();
-    // break;
+    case SYS_READ:
+    BadAddr(ptr + 7);
+    BadAddr(*(ptr + 6));
+    if(*(ptr + 5) == 0) f->eax = *(ptr + 7); 
+    else {
+      struct list_elem *e_read;
+      struct proc_file *file_ptr_read = malloc(sizeof(*file_ptr_read));
+      for(e_read = list_begin(&thread_current()->files); e_read != list_end(&thread_current()->files); e_read = list_next(e_read)) {
+        struct proc_file *f = list_entry (e_read, struct proc_file, elem);
+        if(f->fd == *(ptr + 5)) {
+          file_ptr_read = f;
+          break;
+        }
+      }
+      if(file_ptr_read != NULL) {
+        acquire_filesys_lock();
+        f->eax = file_read(file_ptr_read->ptr, *(ptr + 6), *(ptr + 7));
+        release_filesys_lock();
+      }else f->eax = -1; 
+    }
+    break;
 
-    // case SYS_TELL:
-    // BadAddr(ptr + 1);
-    // acquire_filesys_lock();
-    // f->eax = file_tell(list_search(&thread_current()->files, *(ptr + 1))->ptr);
-    // release_filesys_lock();
-    // break;
+    case SYS_CLOSE:
+    BadAddr(ptr + 1);
+    acquire_filesys_lock();
+    struct list_elem *e_close;
+    for(e_close = list_begin(&thread_current()->files); e_close != list_end(&thread_current()->files); e_close = list_next(e_close)) {
+      struct proc_file *f = list_entry (e_close, struct proc_file, elem);
+      if(f->fd == *(ptr + 1)) {
+        file_close(f->ptr);
+        list_remove(e_close);
+      }
+    }
+    release_filesys_lock();
+    break;
+
+    case SYS_SEEK:
+    BadAddr(ptr + 5);
+    struct list_elem *e_seek;
+    struct proc_file *file_ptr_seek = malloc(sizeof(*file_ptr_seek));
+    for(e_seek = list_begin(&thread_current()->files); e_seek != list_end(&thread_current()->files); e_seek = list_next(e_seek)) {
+      struct proc_file *f = list_entry(e_seek, struct proc_file, elem);
+      if(f->fd == *(ptr + 4)) {
+        file_ptr_seek = f;
+        break;
+      }
+    }
+    acquire_filesys_lock();
+    file_seek(file_ptr_seek->ptr, *(ptr + 5));
+    release_filesys_lock();
+    break;
+
+    case SYS_TELL:
+    BadAddr(ptr + 1);
+    struct list_elem *e_tell;
+    struct proc_file *file_ptr_tell = malloc(sizeof(*file_ptr_tell));
+    for(e_tell = list_begin(&thread_current()->files); e_tell != list_end(&thread_current()->files); e_tell = list_next(e_tell)) {
+      struct proc_file *f = list_entry (e_tell, struct proc_file, elem);
+      if(f->fd == *(ptr + 4)) {
+        file_ptr_tell = f;
+        break;
+      }
+    }
+    acquire_filesys_lock();
+    f->eax = file_tell(file_ptr_tell->ptr);
+    release_filesys_lock();
+    break;
 
   	default:
   	printf("No match\n");
