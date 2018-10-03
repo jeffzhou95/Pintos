@@ -5,6 +5,9 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "process.h"
+#include <string.h>
+#include <stdlib.h>
+#include "filesys/file.h"
 
 static void syscall_handler (struct intr_frame *);
 void BadExit(int status);
@@ -29,8 +32,8 @@ syscall_init (void)
 }
 
 static void
-syscall_handler (struct intr_frame *f UNUSED)
-{
+
+syscall_handler (struct intr_frame *f UNUSED){
   int *ptr = f->esp;
   BadAddr(ptr); 
   int system_call = *ptr;
@@ -38,6 +41,14 @@ syscall_handler (struct intr_frame *f UNUSED)
 
   switch (system_call)
   {
+
+    case SYS_READ:
+      break;
+      
+  	case SYS_WRITE:   
+      parse_argus(ptr,argu,3);
+      f->eax = write(argu[0],(void *)argu[1],argu[2]);
+  	  break;
 
   	case SYS_HALT:
   	shutdown_power_off();
@@ -92,68 +103,6 @@ syscall_handler (struct intr_frame *f UNUSED)
       f->eax = pfile->fd;
     }
     break;
-
-    // case SYS_WRITE:
-    // BadAddr(ptr + 7);
-    // BadAddr(*(ptr + 6));
-    // if(*(ptr + 5) == 1) {
-    //   putbuf(*(ptr + 6), *(ptr + 7));
-    //   f->eax = 0;
-    // }
-    // else {
-    //   struct list_elem *e_write;
-    //   struct proc_file *file_ptr_write = malloc(sizeof(*file_ptr_write));
-    //   for(e_write = list_begin(&thread_current()->files); e_write != list_end(&thread_current()->files); e_write = list_next(e_write)) {
-    //     struct proc_file *f = list_entry (e_write, struct proc_file, elem);
-    //     if(f->fd == *(ptr + 5)) {
-    //       file_ptr_write = f;
-    //       break;
-    //     }
-    //   } 
-    //   if(file_ptr_write != NULL) {
-    //     acquire_filesys_lock();
-    //     f->eax = file_write(file_ptr_write->ptr, *(ptr + 6), *(ptr + 7));
-    //     release_filesys_lock();
-    //   }else f->eax = -1;      
-    // }
-    // break;
-
-    case SYS_WRITE:   
-    parse_argus(ptr,argu,3);
-    f->eax = write(argu[0],(void *)argu[1],argu[2]);
-    break;
-
-    // case SYS_READ:   
-    // parse_argus(ptr,argu,3);
-    // f->eax = read(argu[0],(void *)argu[1],argu[2]);
-    // break;
-
-    // case SYS_READ:
-    // BadAddr(ptr + 7);
-    // BadAddr(*(ptr + 6));
-    // if(*(ptr + 5) == STDIN_FILENO) {
-    //   uint8_t *buffer = *(ptr + 6);
-    //   for(int i = 0; i < *(ptr + 7); i++) buffer[i] = input_getc();
-    //   f->eax = *(ptr + 7); 
-    // }
-    // else {
-    //   struct list_elem *e_read;
-    //   struct proc_file *file_ptr_read = malloc(sizeof(*file_ptr_read));
-    //   for(e_read = list_begin(&thread_current()->files); e_read != list_end(&thread_current()->files); e_read = list_next(e_read)) {
-    //     struct proc_file *f = list_entry (e_read, struct proc_file, elem);
-    //     if(f->fd == *(ptr + 5)) {
-    //       file_ptr_read = f;
-    //       break;
-    //     }
-    //   }
-    //   //file_ptr_read = process_get_file (*(ptr + 5));
-    //   if(file_ptr_read != NULL) {
-    //     acquire_filesys_lock();
-    //     f->eax = file_read(file_ptr_read->ptr, *(ptr + 6), *(ptr + 7));
-    //     release_filesys_lock();
-    //   }else f->eax = -1; 
-    // }
-    // break;
 
     case SYS_CLOSE:
     BadAddr(ptr + 1);
@@ -292,25 +241,6 @@ int write (int fd, const void *buffer, unsigned size){
   return bytes;
 }
 
-// int read (int fd, const void *buffer, unsigned size){
-//   BadAddr(buffer);
-//   if (fd == STDIN_FILENO)
-//     {
-//       int i;
-//       for(i = 0; i < size; i++) buffer[i] = input_getc();
-//       return 0; 
-//     }
-//   acquire_filesys_lock();
-//   struct file *f = process_get_file(fd);
-//   if (!f)
-//     {
-//       release_filesys_lock();
-//       return -1;
-//     }
-//   int bytes = file_read(f, buffer, size);
-//   release_filesys_lock();
-//   return bytes;
-// }
 
 struct file* process_get_file (int fd){
   struct thread *t = thread_current();
@@ -323,4 +253,4 @@ struct file* process_get_file (int fd){
       }
   }
   return NULL;
-}
+
