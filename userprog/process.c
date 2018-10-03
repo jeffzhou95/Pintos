@@ -139,8 +139,7 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
-  // int exit_code = 0;
-  // printf("%s: exit(%d)\n",cur->name,exit_code);
+  //printf("%s: exit(%d)\n",cur->name, cur->ret);
   //close_all_files(&thread_current()->files);
   
   /* Destroy the current process's page directory and switch back
@@ -507,12 +506,8 @@ setup_stack (void **esp, char *file_name)
     {
       *esp -= strlen(cmd) + 1;
       memcpy(*esp, cmd, strlen(cmd) + 1);
-      // printf("hex\n");
-      // hex_dump(*esp, *esp, PHYS_BASE-(*esp), true);
       argv[j]= *esp;
     }
-
-  // printf("argv: %s\n", argv[0]);
 
   // complement esp with 0s
   while((int)*esp % 4 != 0) {
@@ -536,8 +531,6 @@ setup_stack (void **esp, char *file_name)
 
   *esp -= sizeof(int);
   *(int *)(*esp) = 0;
-
-  // hex_dump(*esp, *esp, PHYS_BASE-(*esp), true);
 
   return success;
 }
