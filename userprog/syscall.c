@@ -5,11 +5,17 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "process.h"
+#include <string.h>
+#include <stdlib.h>
+#include "filesys/file.h"
 
 static void syscall_handler (struct intr_frame *);
 void BadExit(int status);
 void *BadAddr(const void *Addr);
 int myExec(char *file_name); 
+void parse_argus(int *ptr, int *argu, int size);
+int write (int fd, const void *buffer, unsigned size);
+struct file* process_get_file (int fd);
 
 extern bool running;
 
@@ -27,8 +33,7 @@ syscall_init (void)
 }
 
 static void
-syscall_handler (struct intr_frame *f UNUSED)
-{
+syscall_handler (struct intr_frame *f UNUSED){
   // printf("system cal!\n");
 
 
@@ -41,14 +46,18 @@ syscall_handler (struct intr_frame *f UNUSED)
   // } 
   
   int system_call = *ptr;
-
-  //if(!is_user_vaddr(*ptr)) BadExit(-1);
-
+  int argu[3];
   switch (system_call)
   {
-  	case SYS_WRITE:
-  	if (*(ptr+5) == 1) putbuf(*(ptr+6), *(ptr+7));
-  	break;
+
+    case SYS_READ:
+      break;
+
+
+  	case SYS_WRITE:   
+      parse_argus(ptr,argu,3);
+      f->eax = write(argu[0],(void *)argu[1],argu[2]);
+  	  break;
 
   	case SYS_HALT:
   	shutdown_power_off();
@@ -104,6 +113,8 @@ syscall_handler (struct intr_frame *f UNUSED)
       f->eax = pfile->fd;
     }
     break;
+
+
 
 
     // case SYS_SEEK:
@@ -173,4 +184,44 @@ void BadExit(int status) {
   printf("%s: exit(%d)\n", cur->name, status);
   cur->ret = status;
   thread_exit();
+}
+
+
+void parse_argus(int *ptr, int *argu, int size){
+  for(int i=0;i<size;i++){
+    BadAddr(ptr+1+i);
+    argu[i] = *(ptr+1+i);
+  }
+}
+
+int write (int fd, const void *buffer, unsigned size){
+  BadAddr(buffer);
+  if (fd == STDOUT_FILENO)
+    {
+      putbuf(buffer, size);
+      return size;
+    }
+  acquire_filesys_lock();;
+  struct file *f = process_get_file(fd);
+  if (!f)
+    {
+      release_filesys_lock();
+      return -1;
+    }
+  int bytes = file_write(f, buffer, size);
+  release_filesys_lock();
+  return bytes;
+}
+
+struct file* process_get_file (int fd){
+  struct thread *t = thread_current();
+  struct list_elem *e;
+
+  for (e = list_begin (&t->files); e != list_end (&t->files); e = list_next (e)){
+          struct proc_file *pf = list_entry (e, struct proc_file, elem);
+          if (fd == pf->fd){
+        return pf->ptr;
+      }
+  }
+  return NULL;
 }
