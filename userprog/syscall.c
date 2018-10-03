@@ -18,13 +18,8 @@ int write (int fd, const void *buffer, unsigned size);
 int read (int fd, const void *buffer, unsigned size);
 struct file* process_get_file (int fd);
 
-extern bool running;
 
-struct proc_file {
-  struct file *ptr;
-  int fd;
-  struct list_elem elem;
-};
+
 
 void
 syscall_init (void)
@@ -133,7 +128,6 @@ syscall_handler (struct intr_frame *f UNUSED){
         break;
       }
     }
-    //file_ptr_seek = process_get_file (*(ptr + 4));
     acquire_filesys_lock();
     file_seek(file_ptr_seek->ptr, *(ptr + 5));
     release_filesys_lock();
@@ -150,7 +144,6 @@ syscall_handler (struct intr_frame *f UNUSED){
         break;
       }
     }
-    //file_ptr_tell = process_get_file (*(ptr + 4));
     acquire_filesys_lock();
     f->eax = file_tell(file_ptr_tell->ptr);
     release_filesys_lock();
@@ -167,8 +160,7 @@ syscall_handler (struct intr_frame *f UNUSED){
         file_ptr_fs = f;
         break;
       } 
-    }  
-    //file_ptr_fs = process_get_file (*(ptr + 1)); 
+    }
     f->eax = file_length(file_ptr_fs->ptr);
     release_filesys_lock();
     break;
@@ -211,7 +203,6 @@ void *BadAddr(const void *Addr) {
 
 void BadExit(int status) {
   struct thread *cur = thread_current();
-//  cur->parent->exit = true;
   sema_up(&cur->ch->exit_lock);
   cur->ch->exit_status = status;
   if(status < 0) status = -1;

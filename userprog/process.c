@@ -4,6 +4,7 @@
 #include <round.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <syscall-nr.h>
 #include <string.h>
 #include "userprog/gdt.h"
 #include "userprog/pagedir.h"
@@ -18,10 +19,10 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "threads/malloc.h"
+#include "userprog/syscall.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
-
 
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
@@ -139,8 +140,15 @@ process_exit (void)
   struct thread *cur = thread_current ();
   uint32_t *pd;
 
-  //printf("%s: exit(%d)\n",cur->name, cur->ret);
-  //close_all_files(&thread_current()->files);
+  acquire_filesys_lock();
+  file_close(thread_current()->self);
+  struct list_elem *e_close_all;
+  for (e_close_all = list_begin(&thread_current()->files); e_close_all != list_end(&thread_current()->files); e_close_all = list_next (e_close_all)) {
+    struct proc_file *f = list_entry (e_close_all, struct proc_file, elem);      
+    file_close(f->ptr);
+    list_remove(e_close_all);
+  }
+  release_filesys_lock();
   
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -272,6 +280,7 @@ load (const char *file_name, void (**eip) (void), void **esp)
   
   char * saveptr;
   file_name_copy = strtok_r(file_name_copy," ",&saveptr);
+  acquire_filesys_lock();
   file = filesys_open (file_name_copy);
   
   if (file == NULL) 
@@ -360,10 +369,12 @@ load (const char *file_name, void (**eip) (void), void **esp)
   *eip = (void (*) (void)) ehdr.e_entry;
 
   success = true;
+  file_deny_write(file);
+  thread_current()->self = file;
 
  done:
   /* We arrive here whether the load is successful or not. */
-  file_close (file);
+  release_filesys_lock();
   return success;
 }
 

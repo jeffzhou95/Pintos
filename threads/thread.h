@@ -7,6 +7,12 @@
 #include <kernel/list.h>
 #include <threads/synch.h>
 
+struct proc_file {
+  struct file *ptr;
+  int fd;
+  struct list_elem elem;
+};
+
 /* States in a thread's life cycle. */
 enum thread_status
   {
@@ -101,6 +107,7 @@ struct thread
     struct list files;
     int fd_count;
     int ret;
+    struct file *self;
 
 #ifdef USERPROG
     /* Owned by userprog/process.c. */
