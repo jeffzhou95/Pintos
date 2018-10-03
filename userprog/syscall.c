@@ -10,6 +10,9 @@ static void syscall_handler (struct intr_frame *);
 void BadExit(int status);
 void *BadAddr(const void *Addr);
 int myExec(char *file_name); 
+void parse_argus(int *ptr, int *argu, int size);
+int write (int fd, const void *buffer, unsigned size);
+struct file* process_get_file (int fd);
 
 extern bool running;
 
@@ -22,7 +25,6 @@ struct proc_file {
 void
 syscall_init (void)
 {
-  // printf("syscall_init!\n");
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
@@ -32,6 +34,7 @@ syscall_handler (struct intr_frame *f UNUSED)
   int *ptr = f->esp;
   BadAddr(ptr); 
   int system_call = *ptr;
+  int argu[3];
 
   switch (system_call)
   {
@@ -79,8 +82,7 @@ syscall_handler (struct intr_frame *f UNUSED)
     acquire_filesys_lock();
     struct file *file_ptr = filesys_open(*(ptr + 1));
     release_filesys_lock();
-    if(file_ptr==NULL)
-      f->eax = -1;
+    if(file_ptr == NULL) f->eax = -1;
     else {
       struct proc_file *pfile = malloc(sizeof(*pfile));
       pfile->ptr = file_ptr;
@@ -91,52 +93,67 @@ syscall_handler (struct intr_frame *f UNUSED)
     }
     break;
 
-    case SYS_WRITE:
-    BadAddr(ptr + 7);
-    BadAddr(*(ptr + 6));
-    if(*(ptr + 5) == 1) {
-      putbuf(*(ptr + 6), *(ptr + 7));
-      f->eax = *(ptr + 7);
-    }
-    else {
-      struct list_elem *e_write;
-      struct proc_file *file_ptr_write = malloc(sizeof(*file_ptr_write));
-      for(e_write = list_begin(&thread_current()->files); e_write != list_end(&thread_current()->files); e_write = list_next(e_write)) {
-        struct proc_file *f = list_entry (e_write, struct proc_file, elem);
-        if(f->fd == *(ptr + 5)) {
-          file_ptr_write = f;
-          break;
-        }
-      } 
-      if(file_ptr_write != NULL) {
-        acquire_filesys_lock();
-        f->eax = file_write(file_ptr_write->ptr, *(ptr + 6), *(ptr + 7));
-        release_filesys_lock();
-      }else f->eax = -1;      
-    }
+    // case SYS_WRITE:
+    // BadAddr(ptr + 7);
+    // BadAddr(*(ptr + 6));
+    // if(*(ptr + 5) == 1) {
+    //   putbuf(*(ptr + 6), *(ptr + 7));
+    //   f->eax = 0;
+    // }
+    // else {
+    //   struct list_elem *e_write;
+    //   struct proc_file *file_ptr_write = malloc(sizeof(*file_ptr_write));
+    //   for(e_write = list_begin(&thread_current()->files); e_write != list_end(&thread_current()->files); e_write = list_next(e_write)) {
+    //     struct proc_file *f = list_entry (e_write, struct proc_file, elem);
+    //     if(f->fd == *(ptr + 5)) {
+    //       file_ptr_write = f;
+    //       break;
+    //     }
+    //   } 
+    //   if(file_ptr_write != NULL) {
+    //     acquire_filesys_lock();
+    //     f->eax = file_write(file_ptr_write->ptr, *(ptr + 6), *(ptr + 7));
+    //     release_filesys_lock();
+    //   }else f->eax = -1;      
+    // }
+    // break;
+
+    case SYS_WRITE:   
+    parse_argus(ptr,argu,3);
+    f->eax = write(argu[0],(void *)argu[1],argu[2]);
     break;
 
-    case SYS_READ:
-    BadAddr(ptr + 7);
-    BadAddr(*(ptr + 6));
-    if(*(ptr + 5) == 0) f->eax = *(ptr + 7); 
-    else {
-      struct list_elem *e_read;
-      struct proc_file *file_ptr_read = malloc(sizeof(*file_ptr_read));
-      for(e_read = list_begin(&thread_current()->files); e_read != list_end(&thread_current()->files); e_read = list_next(e_read)) {
-        struct proc_file *f = list_entry (e_read, struct proc_file, elem);
-        if(f->fd == *(ptr + 5)) {
-          file_ptr_read = f;
-          break;
-        }
-      }
-      if(file_ptr_read != NULL) {
-        acquire_filesys_lock();
-        f->eax = file_read(file_ptr_read->ptr, *(ptr + 6), *(ptr + 7));
-        release_filesys_lock();
-      }else f->eax = -1; 
-    }
-    break;
+    // case SYS_READ:   
+    // parse_argus(ptr,argu,3);
+    // f->eax = read(argu[0],(void *)argu[1],argu[2]);
+    // break;
+
+    // case SYS_READ:
+    // BadAddr(ptr + 7);
+    // BadAddr(*(ptr + 6));
+    // if(*(ptr + 5) == STDIN_FILENO) {
+    //   uint8_t *buffer = *(ptr + 6);
+    //   for(int i = 0; i < *(ptr + 7); i++) buffer[i] = input_getc();
+    //   f->eax = *(ptr + 7); 
+    // }
+    // else {
+    //   struct list_elem *e_read;
+    //   struct proc_file *file_ptr_read = malloc(sizeof(*file_ptr_read));
+    //   for(e_read = list_begin(&thread_current()->files); e_read != list_end(&thread_current()->files); e_read = list_next(e_read)) {
+    //     struct proc_file *f = list_entry (e_read, struct proc_file, elem);
+    //     if(f->fd == *(ptr + 5)) {
+    //       file_ptr_read = f;
+    //       break;
+    //     }
+    //   }
+    //   //file_ptr_read = process_get_file (*(ptr + 5));
+    //   if(file_ptr_read != NULL) {
+    //     acquire_filesys_lock();
+    //     f->eax = file_read(file_ptr_read->ptr, *(ptr + 6), *(ptr + 7));
+    //     release_filesys_lock();
+    //   }else f->eax = -1; 
+    // }
+    // break;
 
     case SYS_CLOSE:
     BadAddr(ptr + 1);
@@ -147,6 +164,7 @@ syscall_handler (struct intr_frame *f UNUSED)
       if(f->fd == *(ptr + 1)) {
         file_close(f->ptr);
         list_remove(e_close);
+        break;
       }
     }
     release_filesys_lock();
@@ -163,6 +181,7 @@ syscall_handler (struct intr_frame *f UNUSED)
         break;
       }
     }
+    //file_ptr_seek = process_get_file (*(ptr + 4));
     acquire_filesys_lock();
     file_seek(file_ptr_seek->ptr, *(ptr + 5));
     release_filesys_lock();
@@ -179,8 +198,26 @@ syscall_handler (struct intr_frame *f UNUSED)
         break;
       }
     }
+    //file_ptr_tell = process_get_file (*(ptr + 4));
     acquire_filesys_lock();
     f->eax = file_tell(file_ptr_tell->ptr);
+    release_filesys_lock();
+    break;
+
+    case SYS_FILESIZE:
+    BadAddr(ptr + 1);
+    acquire_filesys_lock();
+    struct list_elem *e_fs;
+    struct proc_file *file_ptr_fs = malloc(sizeof(*file_ptr_fs));
+    for(e_fs = list_begin(&thread_current()->files); e_fs != list_end(&thread_current()->files); e_fs = list_next(e_fs)) {
+      struct proc_file *f = list_entry (e_fs, struct proc_file, elem);
+      if(f->fd == *(ptr + 1)) {
+        file_ptr_fs = f;
+        break;
+      } 
+    }  
+    //file_ptr_fs = process_get_file (*(ptr + 1)); 
+    f->eax = file_length(file_ptr_fs->ptr);
     release_filesys_lock();
     break;
 
@@ -220,16 +257,6 @@ void *BadAddr(const void *Addr) {
 
 }
 
-void
-exit (int status)
-{
-  struct thread *cur = thread_current();
-  cur->parent->exit = true;
-  if(status < 0) status = -1;
-  printf("%s: exit(%d)\n", cur->name, status);
-  thread_exit();
-}
-
 void BadExit(int status) {
   struct thread *cur = thread_current();
   cur->parent->exit = true;
@@ -237,4 +264,63 @@ void BadExit(int status) {
   printf("%s: exit(%d)\n", cur->name, status);
   cur->ret = status;
   thread_exit();
+}
+
+void parse_argus(int *ptr, int *argu, int size){
+  for(int i=0;i<size;i++){
+    BadAddr(ptr+1+i);
+    argu[i] = *(ptr+1+i);
+  }
+}
+
+int write (int fd, const void *buffer, unsigned size){
+  BadAddr(buffer);
+  if (fd == STDOUT_FILENO)
+    {
+      putbuf(buffer, size);
+      return size;
+    }
+  acquire_filesys_lock();;
+  struct file *f = process_get_file(fd);
+  if (!f)
+    {
+      release_filesys_lock();
+      return -1;
+    }
+  int bytes = file_write(f, buffer, size);
+  release_filesys_lock();
+  return bytes;
+}
+
+// int read (int fd, const void *buffer, unsigned size){
+//   BadAddr(buffer);
+//   if (fd == STDIN_FILENO)
+//     {
+//       int i;
+//       for(i = 0; i < size; i++) buffer[i] = input_getc();
+//       return 0; 
+//     }
+//   acquire_filesys_lock();
+//   struct file *f = process_get_file(fd);
+//   if (!f)
+//     {
+//       release_filesys_lock();
+//       return -1;
+//     }
+//   int bytes = file_read(f, buffer, size);
+//   release_filesys_lock();
+//   return bytes;
+// }
+
+struct file* process_get_file (int fd){
+  struct thread *t = thread_current();
+  struct list_elem *e;
+
+  for (e = list_begin (&t->files); e != list_end (&t->files); e = list_next (e)){
+          struct proc_file *pf = list_entry (e, struct proc_file, elem);
+          if (fd == pf->fd){
+        return pf->ptr;
+      }
+  }
+  return NULL;
 }
