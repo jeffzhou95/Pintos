@@ -28,32 +28,23 @@ struct proc_file {
 void
 syscall_init (void)
 {
-  // printf("syscall_init!\n");
   intr_register_int (0x30, 3, INTR_ON, syscall_handler, "syscall");
 }
 
 static void
+
 syscall_handler (struct intr_frame *f UNUSED){
-  // printf("system cal!\n");
-
-
   int *ptr = f->esp;
-  BadAddr(ptr);
-
-  // if (!is_user_vaddr(*ptr) || !pagedir_get_page(thread_current()->pagedir, ptr))
-  // {
-  //   exit(-1);
-  // } 
-  
+  BadAddr(ptr); 
   int system_call = *ptr;
   int argu[3];
+
   switch (system_call)
   {
 
     case SYS_READ:
       break;
-
-
+      
   	case SYS_WRITE:   
       parse_argus(ptr,argu,3);
       f->eax = write(argu[0],(void *)argu[1],argu[2]);
@@ -100,10 +91,9 @@ syscall_handler (struct intr_frame *f UNUSED){
     BadAddr(ptr + 1);
     BadAddr(*(ptr + 1));
     acquire_filesys_lock();
-    struct file *file_ptr = filesys_open (*(ptr + 1));
+    struct file *file_ptr = filesys_open(*(ptr + 1));
     release_filesys_lock();
-    if(file_ptr==NULL)
-      f->eax = -1;
+    if(file_ptr == NULL) f->eax = -1;
     else {
       struct proc_file *pfile = malloc(sizeof(*pfile));
       pfile->ptr = file_ptr;
@@ -114,22 +104,71 @@ syscall_handler (struct intr_frame *f UNUSED){
     }
     break;
 
+    case SYS_CLOSE:
+    BadAddr(ptr + 1);
+    acquire_filesys_lock();
+    struct list_elem *e_close;
+    for(e_close = list_begin(&thread_current()->files); e_close != list_end(&thread_current()->files); e_close = list_next(e_close)) {
+      struct proc_file *f = list_entry (e_close, struct proc_file, elem);
+      if(f->fd == *(ptr + 1)) {
+        file_close(f->ptr);
+        list_remove(e_close);
+        break;
+      }
+    }
+    release_filesys_lock();
+    break;
 
+    case SYS_SEEK:
+    BadAddr(ptr + 5);
+    struct list_elem *e_seek;
+    struct proc_file *file_ptr_seek = malloc(sizeof(*file_ptr_seek));
+    for(e_seek = list_begin(&thread_current()->files); e_seek != list_end(&thread_current()->files); e_seek = list_next(e_seek)) {
+      struct proc_file *f = list_entry(e_seek, struct proc_file, elem);
+      if(f->fd == *(ptr + 4)) {
+        file_ptr_seek = f;
+        break;
+      }
+    }
+    //file_ptr_seek = process_get_file (*(ptr + 4));
+    acquire_filesys_lock();
+    file_seek(file_ptr_seek->ptr, *(ptr + 5));
+    release_filesys_lock();
+    break;
 
+    case SYS_TELL:
+    BadAddr(ptr + 1);
+    struct list_elem *e_tell;
+    struct proc_file *file_ptr_tell = malloc(sizeof(*file_ptr_tell));
+    for(e_tell = list_begin(&thread_current()->files); e_tell != list_end(&thread_current()->files); e_tell = list_next(e_tell)) {
+      struct proc_file *f = list_entry (e_tell, struct proc_file, elem);
+      if(f->fd == *(ptr + 4)) {
+        file_ptr_tell = f;
+        break;
+      }
+    }
+    //file_ptr_tell = process_get_file (*(ptr + 4));
+    acquire_filesys_lock();
+    f->eax = file_tell(file_ptr_tell->ptr);
+    release_filesys_lock();
+    break;
 
-    // case SYS_SEEK:
-    // BadAddr(ptr + 5);
-    // acquire_filesys_lock();
-    // file_seek(list_search(&thread_current()->files, *(ptr + 4))->ptr,*(ptr + 5));
-    // release_filesys_lock();
-    // break;
-
-    // case SYS_TELL:
-    // BadAddr(ptr + 1);
-    // acquire_filesys_lock();
-    // f->eax = file_tell(list_search(&thread_current()->files, *(ptr + 1))->ptr);
-    // release_filesys_lock();
-    // break;
+    case SYS_FILESIZE:
+    BadAddr(ptr + 1);
+    acquire_filesys_lock();
+    struct list_elem *e_fs;
+    struct proc_file *file_ptr_fs = malloc(sizeof(*file_ptr_fs));
+    for(e_fs = list_begin(&thread_current()->files); e_fs != list_end(&thread_current()->files); e_fs = list_next(e_fs)) {
+      struct proc_file *f = list_entry (e_fs, struct proc_file, elem);
+      if(f->fd == *(ptr + 1)) {
+        file_ptr_fs = f;
+        break;
+      } 
+    }  
+    //file_ptr_fs = process_get_file (*(ptr + 1)); 
+    f->eax = file_length(file_ptr_fs->ptr);
+    release_filesys_lock();
+    break;
 
   	default:
   	printf("No match\n");
@@ -167,16 +206,6 @@ void *BadAddr(const void *Addr) {
 
 }
 
-void
-exit (int status)
-{
-  struct thread *cur = thread_current();
-  cur->parent->exit = true;
-  if(status < 0) status = -1;
-  printf("%s: exit(%d)\n", cur->name, status);
-  thread_exit();
-}
-
 void BadExit(int status) {
   struct thread *cur = thread_current();
   cur->parent->exit = true;
@@ -185,7 +214,6 @@ void BadExit(int status) {
   cur->ret = status;
   thread_exit();
 }
-
 
 void parse_argus(int *ptr, int *argu, int size){
   for(int i=0;i<size;i++){
@@ -213,6 +241,7 @@ int write (int fd, const void *buffer, unsigned size){
   return bytes;
 }
 
+
 struct file* process_get_file (int fd){
   struct thread *t = thread_current();
   struct list_elem *e;
@@ -224,4 +253,4 @@ struct file* process_get_file (int fd){
       }
   }
   return NULL;
-}
+
