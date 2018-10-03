@@ -10,6 +10,7 @@ void process_activate (void);
 
 struct child_thread {
     tid_t tid;
+    int exit_status;
     struct semaphore exit_lock;
     struct list_elem elem;
 };

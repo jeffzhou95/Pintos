@@ -108,7 +108,7 @@ process_wait (tid_t child_tid UNUSED)
   // while child exit
 //  while(!thread_current()->exit) ;
   //sleep(10);
-  return child_tid;
+  return child->exit_status;
 }
 
 struct child_thread* add_child(struct thread *t, tid_t child_tid) {
