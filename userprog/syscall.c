@@ -15,6 +15,7 @@ void *BadAddr(const void *Addr);
 int myExec(char *file_name); 
 void parse_argus(int *ptr, int *argu, int size);
 int write (int fd, const void *buffer, unsigned size);
+int read (int fd, const void *buffer, unsigned size);
 struct file* process_get_file (int fd);
 
 extern bool running;
@@ -43,12 +44,14 @@ syscall_handler (struct intr_frame *f UNUSED){
   {
 
     case SYS_READ:
-      break;
+    parse_argus(ptr,argu,3);
+    f->eax = read(argu[0],(void *)argu[1],argu[2]);
+    break;
       
   	case SYS_WRITE:   
-      parse_argus(ptr,argu,3);
-      f->eax = write(argu[0],(void *)argu[1],argu[2]);
-  	  break;
+    parse_argus(ptr,argu,3);
+    f->eax = write(argu[0],(void *)argu[1],argu[2]);
+  	break;
 
   	case SYS_HALT:
   	shutdown_power_off();
@@ -229,7 +232,7 @@ int write (int fd, const void *buffer, unsigned size){
       putbuf(buffer, size);
       return size;
     }
-  acquire_filesys_lock();;
+  acquire_filesys_lock();
   struct file *f = process_get_file(fd);
   if (!f)
     {
@@ -237,6 +240,30 @@ int write (int fd, const void *buffer, unsigned size){
       return -1;
     }
   int bytes = file_write(f, buffer, size);
+  release_filesys_lock();
+  return bytes;
+}
+
+
+int read (int fd, const void *buffer, unsigned size)
+{
+  BadAddr(buffer);
+  if (fd == STDIN_FILENO){
+      unsigned i;
+      uint8_t* local_buffer = (uint8_t *) buffer;
+      for (i = 0; i < size; i++){
+        local_buffer[i] = input_getc();
+      }
+      return size;
+  }
+  acquire_filesys_lock();
+  struct file *f = process_get_file(fd);
+  if (!f)
+    {
+      release_filesys_lock();
+      return -1;
+    }
+  int bytes = file_read(f, buffer, size);
   release_filesys_lock();
   return bytes;
 }
@@ -253,4 +280,5 @@ struct file* process_get_file (int fd){
       }
   }
   return NULL;
+}
 
