@@ -17,6 +17,7 @@
 #include "threads/palloc.h"
 #include "threads/thread.h"
 #include "threads/vaddr.h"
+#include "threads/malloc.h"
 
 static thread_func start_process NO_RETURN;
 static bool load (const char *cmdline, void (**eip) (void), void **esp);
@@ -101,25 +102,28 @@ process_wait (tid_t child_tid UNUSED)
   if (child == NULL) {
       return -1;
   }
-  sema_down(child->exit_lock);
+  sema_down(&child->exit_lock);
+  list_remove(&child->elem);
   // get child by tid
   // while child exit
 //  while(!thread_current()->exit) ;
   //sleep(10);
-  return -1;
+  return child_tid;
 }
 
 struct child_thread* add_child(struct thread *t, tid_t child_tid) {
+  // return NULL;
+
   struct child_thread *child = malloc(sizeof(struct child_thread));
   child->tid = child_tid;
-  sema_init(child->exit_lock, 0);
-  list_push_back(t->child_threads, &child->elem);
+  sema_init(&child->exit_lock, 0);
+  list_push_back(&t->child_threads, &child->elem);
   return child;
 }
 
 struct child_thread* get_child_thread(struct thread *parent, tid_t child_tid) {
   struct list_elem *elem;
-  for (elem = list_head(parent->child_threads); elem != list_end(parent->child_threads); elem = list_next(elem)) {
+  for (elem = list_head(&parent->child_threads); elem != list_end(&parent->child_threads); elem = list_next(elem)) {
     struct child_thread *c = list_entry(elem, struct child_thread, elem);
     if (c->tid == child_tid) {
       return c;

@@ -108,7 +108,7 @@ struct thread
 #endif
 
     // all children info
-    struct list *child_threads;
+    struct list child_threads;
     // self thread info
     struct child_thread* ch;
 

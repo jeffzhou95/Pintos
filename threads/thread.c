@@ -203,6 +203,8 @@ thread_create (const char *name, int priority,
   sf->eip = switch_entry;
   sf->ebp = 0;
 
+  // struct child_thread *ch = add_child(thread_current(), t->tid);
+  // t->ch = ch;
   t->ch = add_child(thread_current(), t->tid);
 
   /* Add to run queue. */
@@ -479,6 +481,9 @@ init_thread (struct thread *t, const char *name, int priority)
   //old_level = intr_disable ();
   list_push_back (&all_list, &t->allelem);
   //intr_set_level (old_level);
+
+  list_init(&t->child_threads);
+  t->ch = NULL;
 }
 
 /* Allocates a SIZE-byte frame at the top of thread T's stack and

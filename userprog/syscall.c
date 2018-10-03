@@ -169,7 +169,7 @@ exit (int status)
 void BadExit(int status) {
   struct thread *cur = thread_current();
 //  cur->parent->exit = true;
-  sema_up(cur->ch->exit_lock);
+  sema_up(&cur->ch->exit_lock);
   if(status < 0) status = -1;
   printf("%s: exit(%d)\n", cur->name, status);
   cur->ret = status;
