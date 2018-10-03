@@ -94,11 +94,38 @@ start_process (void *file_name_)
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int
-process_wait (tid_t child_tid UNUSED) 
+process_wait (tid_t child_tid UNUSED)
 {
-  while(!thread_current()->exit) ;
+//  struct thread *cur = thread_current();
+  struct child_thread *child = get_child_thread(thread_current(), child_tid);
+  if (child == NULL) {
+      return -1;
+  }
+  sema_down(child->exit_lock);
+  // get child by tid
+  // while child exit
+//  while(!thread_current()->exit) ;
   //sleep(10);
   return -1;
+}
+
+struct child_thread* add_child(struct thread *t, tid_t child_tid) {
+  struct child_thread *child = malloc(sizeof(struct child_thread));
+  child->tid = child_tid;
+  sema_init(child->exit_lock, 0);
+  list_push_back(t->child_threads, &child->elem);
+  return child;
+}
+
+struct child_thread* get_child_thread(struct thread *parent, tid_t child_tid) {
+  struct list_elem *elem;
+  for (elem = list_head(parent->child_threads); elem != list_end(parent->child_threads); elem = list_next(elem)) {
+    struct child_thread *c = list_entry(elem, struct child_thread, elem);
+    if (c->tid == child_tid) {
+      return c;
+    }
+  }
+  return NULL;
 }
 
 /* Free the current process's resources. */

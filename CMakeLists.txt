@@ -328,6 +328,7 @@ set(SOURCE_FILES
         utils/squish-unix.c )
 
 add_executable(src ${SOURCE_FILES})
+add_definitions(-DUSERPROG)
 include_directories(lib)
 include_directories(lib/kernel)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})

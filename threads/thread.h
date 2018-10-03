@@ -107,6 +107,11 @@ struct thread
     uint32_t *pagedir;                  /* Page directory. */
 #endif
 
+    // all children info
+    struct list *child_threads;
+    // self thread info
+    struct child_thread* ch;
+
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };
