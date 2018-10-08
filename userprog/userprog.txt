@@ -54,13 +54,73 @@ the caller. We need to the address of arguments so that we can reach later.
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+in process.h
+/*child_thread is used to indicate the child's status, used in wait-syscall*/
+struct child_thread {
+    tid_t tid;
+    int exit_status;
+    struct semaphore exit_lock;
+    struct list_elem elem;
+};
+
+in thread.h
+/* used in file related syscall */
+struct proc_file {
+  struct file *ptr;
+  int fd;
+  struct list_elem elem;
+};
+
+struct thread
+  {
+    /* Owned by thread.c. */
+    tid_t tid;                          /* Thread identifier. */
+    enum thread_status status;          /* Thread state. */
+    char name[16];                      /* Name (for debugging purposes). */
+    uint8_t *stack;                     /* Saved stack pointer. */
+    int priority;                       /* Priority. */
+    struct list_elem allelem;           /* List element for all threads list. */
+
+    /* Shared between thread.c and synch.c. */
+    struct list_elem elem;              /* List element. */
+
+    bool exit;
+    //int exit_error;
+    struct thread *parent;
+    struct list files;
+    int fd_count;
+    int ret;
+    struct file *self;
+
+#ifdef USERPROG
+    /* Owned by userprog/process.c. */
+    uint32_t *pagedir;                  /* Page directory. */
+#endif
+
+    // all children info
+    struct list child_threads;
+    // self thread info
+    struct child_thread* ch;
+
+    /* Owned by thread.c. */
+    unsigned magic;                     /* Detects stack overflow. */
+  };
+
 >> B2: Describe how file descriptors are associated with open files.
 >> Are file descriptors unique within the entire OS or just within a
 >> single process?
+After we use filesys-open() to get the pointer to file, thread stores the fd_count,
+ we use this as the current file descriptor and advance the fd_count. Therefore, 
+ file descriptor is unique within a single process.
+
 
 ---- ALGORITHMS ----
 >> B3: Describe your code for reading and writing user data from the
 >> kernel.
+Code for reading and writing data are very similar. Take writing for example,
+if fd is STDOUT_FILENO, directly use putbuf() to write data to output, otherwise, 
+use fd to get the actuall file pointer, and then use file_write method to write 
+data to file. Additionally, don't forget to use lock when dealing with file.
 
 >> B4: Suppose a system call causes a full page (4,096 bytes) of data
 >> to be copied from user space into the kernel.  What is the least
@@ -68,9 +128,16 @@ the caller. We need to the address of arguments so that we can reach later.
 >> (e.g. calls to pagedir_get_page()) that might result?  What about
 >> for a system call that only copies 2 bytes of data?  Is there room
 >> for improvement in these numbers, and how much?
+For a full page of of data, the least number of inspection is 1. Because pagedir_get_page() returns 
+a page head back, which can caompared with the address. Because it can hold a full page of 
+data, we only need to inspect it once. The greatest number is 4096, when these data is not 
+continuous.
+
+For 2 bytes of data, the least number is 1, the greatest number is 2 with the same reason.
 
 >> B5: Briefly describe your implementation of the "wait" system call
 >> and how it interacts with process termination.
+
 
 >> B6: Any access to user program memory at a user-specified address
 >> can fail due to a bad pointer value.  Such accesses must cause the
