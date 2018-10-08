@@ -54,6 +54,59 @@ the caller. We need to the address of arguments so that we can reach later.
 >> `struct' member, global or static variable, `typedef', or
 >> enumeration.  Identify the purpose of each in 25 words or less.
 
+in process.h
+/*child_thread is used to indicate the child's status, used in wait-syscall*/
+struct child_thread {
+    tid_t tid;
+    int exit_status;
+    struct semaphore exit_lock;
+    struct list_elem elem;
+};
+
+in thread.h
+struct proc_file {
+  struct file *ptr;
+  int fd;
+  struct list_elem elem;
+};
+
+struct thread
+  {
+    /* Owned by thread.c. */
+    tid_t tid;                          /* Thread identifier. */
+    enum thread_status status;          /* Thread state. */
+    char name[16];                      /* Name (for debugging purposes). */
+    uint8_t *stack;                     /* Saved stack pointer. */
+    int priority;                       /* Priority. */
+    struct list_elem allelem;           /* List element for all threads list. */
+
+    /* Shared between thread.c and synch.c. */
+    struct list_elem elem;              /* List element. */
+
+    bool exit;
+    //int exit_error;
+    struct thread *parent;
+    struct list files;
+    int fd_count;
+    int ret;
+    struct file *self;
+
+#ifdef USERPROG
+    /* Owned by userprog/process.c. */
+    uint32_t *pagedir;                  /* Page directory. */
+#endif
+
+    // all children info
+    struct list child_threads;
+    // self thread info
+    struct child_thread* ch;
+
+    /* Owned by thread.c. */
+    unsigned magic;                     /* Detects stack overflow. */
+  };
+
+
+
 >> B2: Describe how file descriptors are associated with open files.
 >> Are file descriptors unique within the entire OS or just within a
 >> single process?
