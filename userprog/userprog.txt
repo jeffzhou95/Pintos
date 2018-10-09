@@ -5,7 +5,7 @@
 		     +--------------------------+
 ---- GROUP ----
 >> Fill in the names and email addresses of your group members.
-FirstName LastName <email@domain.example>
+Xingzhe Zhou <xz6429@utexas.edu>
 Yihe Liu <liuyihe@utexas.edu>
 Menghao Yang <ymh2ee@outlook.com>
 
@@ -204,12 +204,16 @@ the lock and quit safety.
 ---- RATIONALE ----
 >> B9: Why did you choose to implement access to user memory from the
 >> kernel in the way that you did?
+We store arguments in kernel stack and access to these data before we validate (BadAddr).
 
 >> B10: What advantages or disadvantages can you see to your design
 >> for file descriptors?
+Advantages: Because we use linklist as the data structure to store file descriptors, 
+so it is easy to delete and add items.
 
 >> B11: The default tid_t to pid_t mapping is the identity mapping.
 >> If you changed it, what advantages are there to your approach?
+We didn't change it.
 
 			   SURVEY QUESTIONS
 			   ================
