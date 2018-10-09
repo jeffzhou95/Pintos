@@ -6,7 +6,7 @@
 ---- GROUP ----
 >> Fill in the names and email addresses of your group members.
 FirstName LastName <email@domain.example>
-FirstName LastName <email@domain.example>
+Yihe Liu <liuyihe@utexas.edu>
 Menghao Yang <ymh2ee@outlook.com>
 
 ---- PRELIMINARIES ----
@@ -32,10 +32,10 @@ How you implemented argument parsing?
 To implement argument parsing, we seperate tokens first, and then pass it down to start_process(),
 load() and setup_stack(). The most important part is the stack setup.
 
-How doyou arrange for the elements of argv[] to be in the right order?
-After page is installed at the top of virtual memory, we scan the command string and push each token to 
-the stack. Argument order doesn't matter, because these arguments will be referenced by pointers. After 
-alignment with 0, we push argv[i] pointers from argv[argc] to argv[0], then push argc, then fake return 
+How do you arrange for the elements of argv[] to be in the right order?
+After page is installed at the top of virtual memory, we scan the command string and push each token to
+the stack. Argument order doesn't matter, because these arguments will be referenced by pointers. After
+alignment with 0, we push argv[i] pointers from argv[argc] to argv[0], then push argc, then fake return
 address.
 
 How do you avoid overflowing the stack page?
@@ -44,7 +44,7 @@ We didn't check the esp pointer until it fails, which will exit the running thre
 
 ---- RATIONALE ----
 >> A3: Why does Pintos implement strtok_r() but not strtok()?
-The difference between strtok_r() and strtok() is that strtok_r() has the save_ptr, which is provided by 
+The difference between strtok_r() and strtok() is that strtok_r() has the save_ptr, which is provided by
 the caller. We need to the address of arguments so that we can reach later.
 
 			     SYSTEM CALLS
@@ -138,6 +138,12 @@ For 2 bytes of data, the least number is 1, the greatest number is 2 with the sa
 >> B5: Briefly describe your implementation of the "wait" system call
 >> and how it interacts with process termination.
 
+1. Whenever the parent create a new child, the child's information will
+   be stored as an element of the list in the parent's thread structure
+2. Each child has a semaphore whose initial value is 0
+3. When the parent wait for a child, it calls sema_down(child_sema)
+4. When the child exit, we will sema_up the semaphore so that its
+   parent can return from the `wait()`
 
 >> B6: Any access to user program memory at a user-specified address
 >> can fail due to a bad pointer value.  Such accesses must cause the
@@ -153,11 +159,32 @@ For 2 bytes of data, the least number is 1, the greatest number is 2 with the sa
 >> paragraphs, describe the strategy or strategies you adopted for
 >> managing these issues.  Give an example.
 
+1. design and error-handling
+* We create a function to check whether the address is valid or not
+  using `is_user_vaddr` and `pagedir_get_page`,
+  if it is invalid, the process will exit(-1)
+* `syscall_handler` checks the validation of `esp` at first
+* When we parse the arguments, we will check the validation of each
+  argument
+2. free allocated resources
+* We prefer to check the validation before allocating resources which
+  helps us to worry less about freeing resources
+* Before the program exits, it will release the lock and sema_up(sema)
+
+For example, in SYS_READ, we use `parse_argus` to parse arguments and
+check the validation of each points, before actually opening the file.
+We check whether an error occurs in the function, if yes then release
+the lock and quit safety.
+
 ---- SYNCHRONIZATION ----
 >> B7: The "exec" system call returns -1 if loading the new executable
 >> fails, so it cannot return before the new executable has completed
 >> loading.  How does your code ensure this?  How is the load
 >> success/failure status passed back to the thread that calls "exec"?
+
+* We use `filesys_open` to test whether the file exist or not. If the
+  file does not exist, `exec` will return -1. Otherwise, `exec` will
+  call `process_execute` to run the user program and return tid_t
 
 >> B8: Consider parent process P with child process C.  How do you
 >> ensure proper synchronization and avoid race conditions when P
@@ -165,6 +192,14 @@ For 2 bytes of data, the least number is 1, the greatest number is 2 with the sa
 >> that all resources are freed in each case?  How about when P
 >> terminates without waiting, before C exits?  After C exits?  Are
 >> there any special cases?
+
+* If P calls wait(C) before C exits, P will be blocked because semaphore
+  inits as 0 and sema_down(sema) block the process
+* If C exits, C calls sema_up(sema) and P will be blocked by sema_down(sema)
+  any more.
+* After wait(C), resources such as semaphore will be released.
+* All resources are released after exit().
+* If P terminates without waiting, C can sema_up and exit as well
 
 ---- RATIONALE ----
 >> B9: Why did you choose to implement access to user memory from the
