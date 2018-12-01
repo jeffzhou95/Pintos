@@ -11,6 +11,7 @@
 #include "filesys/inode.h"
 
 static void syscall_handler (struct intr_frame *);
+
 void BadExit(int status);
 void *BadAddr(const void *Addr);
 int myExec(char *file_name); 
@@ -24,6 +25,7 @@ bool sys_chdir(const char *filename);
 bool sys_mkdir(const char *filename);
 #endif
 
+struct lock filesys_lock;
 
 void
 syscall_init (void)
@@ -174,7 +176,8 @@ syscall_handler (struct intr_frame *f UNUSED){
     {
       const char* filename;
       int return_code;
-      memread_user(f->esp + 4, &filename, sizeof(filename));
+      parse_argus(ptr,argu,1);
+      filename = (char*)argu[0];
       return_code = sys_chdir(filename);
       f->eax = return_code;
       break;
@@ -183,7 +186,8 @@ syscall_handler (struct intr_frame *f UNUSED){
     {
       const char* filename;
       int return_code;
-      memread_user(f->esp + 4, &filename, sizeof(filename));
+      parse_argus(ptr,argu,1);
+      filename = (char*)argu[0];
       return_code = sys_mkdir(filename);
       f->eax = return_code;
       break;
@@ -315,7 +319,7 @@ struct file* process_get_file (int fd){
 bool sys_chdir(const char *filename)
 {
   bool return_code;
-  check_user((const uint8_t*) filename);
+  BadAddr(filename);
   lock_acquire (&filesys_lock);
   return_code = filesys_chdir(filename);
   lock_release (&filesys_lock);
@@ -324,10 +328,11 @@ bool sys_chdir(const char *filename)
 bool sys_mkdir(const char *filename)
 {
   bool return_code;
-  check_user((const uint8_t*) filename);
+  BadAddr(filename);
   lock_acquire (&filesys_lock);
   return_code = filesys_create(filename, 0, true);
   lock_release (&filesys_lock);
   return return_code;
 }
 #endif
+
