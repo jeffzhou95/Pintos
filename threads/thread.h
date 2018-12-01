@@ -119,6 +119,9 @@ struct thread
     // self thread info
     struct child_thread* ch;
 
+    // Project 4: CWD.
+    struct dir *cwd;
+    
     /* Owned by thread.c. */
     unsigned magic;                     /* Detects stack overflow. */
   };

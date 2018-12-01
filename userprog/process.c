@@ -166,6 +166,9 @@ process_exit (void)
       pagedir_activate (NULL);
       pagedir_destroy (pd);
     }
+
+    /* Close CWD */
+  if(cur->cwd) dir_close (cur->cwd);
 }
 
 /* Sets up the CPU for running user code in the current
@@ -360,6 +363,9 @@ load (const char *file_name, void (**eip) (void), void **esp)
           break;
         }
     }
+
+  /* Set up CWD */
+  t->cwd = dir_open_root();
 
   /* Set up stack. */
   if (!setup_stack (esp, file_name))

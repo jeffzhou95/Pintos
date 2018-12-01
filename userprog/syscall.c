@@ -8,6 +8,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include "filesys/file.h"
+#include "filesys/inode.h"
 
 static void syscall_handler (struct intr_frame *);
 void BadExit(int status);
@@ -18,7 +19,10 @@ int write (int fd, const void *buffer, unsigned size);
 int read (int fd, const void *buffer, unsigned size);
 struct file* process_get_file (int fd);
 
-
+#ifdef FILESYS
+bool sys_chdir(const char *filename);
+bool sys_mkdir(const char *filename);
+#endif
 
 
 void
@@ -165,6 +169,38 @@ syscall_handler (struct intr_frame *f UNUSED){
     release_filesys_lock();
     break;
 
+#ifdef FILESYS
+  case SYS_CHDIR: // 15
+    {
+      const char* filename;
+      int return_code;
+      memread_user(f->esp + 4, &filename, sizeof(filename));
+      return_code = sys_chdir(filename);
+      f->eax = return_code;
+      break;
+    }
+  case SYS_MKDIR: // 16
+    {
+      const char* filename;
+      int return_code;
+      memread_user(f->esp + 4, &filename, sizeof(filename));
+      return_code = sys_mkdir(filename);
+      f->eax = return_code;
+      break;
+    }
+  case SYS_READDIR: // 17
+    {
+    }
+  case SYS_ISDIR: // 18
+    {
+    }
+  case SYS_INUMBER: // 19
+    {
+    }
+#endif
+
+
+
   	default:
   	printf("No match\n");
   }
@@ -275,3 +311,23 @@ struct file* process_get_file (int fd){
   return NULL;
 }
 
+#ifdef FILESYS
+bool sys_chdir(const char *filename)
+{
+  bool return_code;
+  check_user((const uint8_t*) filename);
+  lock_acquire (&filesys_lock);
+  return_code = filesys_chdir(filename);
+  lock_release (&filesys_lock);
+  return return_code;
+}
+bool sys_mkdir(const char *filename)
+{
+  bool return_code;
+  check_user((const uint8_t*) filename);
+  lock_acquire (&filesys_lock);
+  return_code = filesys_create(filename, 0, true);
+  lock_release (&filesys_lock);
+  return return_code;
+}
+#endif

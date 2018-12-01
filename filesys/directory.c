@@ -1,3 +1,4 @@
+#include "threads/thread.h"
 #include "filesys/directory.h"
 #include <stdio.h>
 #include <string.h>
@@ -103,8 +104,21 @@ dir_open_path (const char *path)
   int l = strlen(path);
   char s[l + 1];
   strlcpy(s, path, l + 1);
-  // TODO: relative path, cwd
-  struct dir *curr = dir_open_root();
+  
+  // relative path handling
+  struct dir *curr;
+  if(path[0] == '/') { // absolute path
+    curr = dir_open_root();
+  }
+  else { // relative path
+    struct thread *t = thread_current();
+    if (t->cwd == NULL) // may happen for non-process threads (e.g. main)
+      curr = dir_open_root();
+    else {
+      curr = dir_reopen( t->cwd );
+    }
+  }
+
   // tokenize, and traverse the tree
   char *token, *p;
   for (token = strtok_r(s, "/", &p); token != NULL;
