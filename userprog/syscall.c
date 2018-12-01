@@ -72,7 +72,7 @@ syscall_handler (struct intr_frame *f UNUSED){
     BadAddr(ptr + 5);
     BadAddr(*(ptr + 4));
     acquire_filesys_lock();
-    f->eax = filesys_create(*(ptr + 4), *(ptr + 5));
+    f->eax = filesys_create(*(ptr + 4), *(ptr + 5), false);
     release_filesys_lock();
     break;
 

@@ -21,12 +21,43 @@ struct dir_entry
     bool in_use;                        /* In use or free? */
   };
 
+void
+split_path_filename(const char *path,
+                    char *directory, char *filename)
+{
+  int l = strlen(path);
+  char *s = (char*) malloc( sizeof(char) * (l + 1) );
+  memcpy (s, path, sizeof(char) * (l + 1));
+  // absolute path handling
+  char *dir = directory;
+  if(l > 0 && path[0] == '/') {
+    if(dir) *dir++ = '/';
+  }
+  // tokenize
+  char *token, *p, *last_token = "";
+  for (token = strtok_r(s, "/", &p); token != NULL;
+       token = strtok_r(NULL, "/", &p))
+  {
+    // append last_token into directory
+    int tl = strlen (last_token);
+    if (dir && tl > 0) {
+      memcpy (dir, last_token, sizeof(char) * tl);
+      dir[tl] = '/';
+      dir += tl + 1;
+    }
+    last_token = token;
+  }
+  if(dir) *dir = '\0';
+  memcpy (filename, last_token, sizeof(char) * (strlen(last_token) + 1));
+  free (s);
+}
+
 /* Creates a directory with space for ENTRY_CNT entries in the
    given SECTOR.  Returns true if successful, false on failure. */
 bool
 dir_create (block_sector_t sector, size_t entry_cnt)
 {
-  return inode_create (sector, entry_cnt * sizeof (struct dir_entry));
+  return inode_create (sector, entry_cnt * sizeof (struct dir_entry), true);
 }
 
 /* Opens and returns the directory for the given INODE, of which
@@ -63,6 +94,36 @@ struct dir *
 dir_reopen (struct dir *dir)
 {
   return dir_open (inode_reopen (dir->inode));
+}
+
+struct dir *
+dir_open_path (const char *path)
+{
+  // copy of path, to tokenize
+  int l = strlen(path);
+  char s[l + 1];
+  strlcpy(s, path, l + 1);
+  // TODO: relative path, cwd
+  struct dir *curr = dir_open_root();
+  // tokenize, and traverse the tree
+  char *token, *p;
+  for (token = strtok_r(s, "/", &p); token != NULL;
+       token = strtok_r(NULL, "/", &p))
+  {
+    struct inode *inode = NULL;
+    if(! dir_lookup(curr, token, &inode)) {
+      dir_close(curr);
+      return NULL; // such directory not exist
+    }
+    struct dir *next = dir_open(inode);
+    if(next == NULL) {
+      dir_close(curr);
+      return NULL;
+    }
+    dir_close(curr);
+    curr = next;
+  }
+  return curr;
 }
 
 /* Destroys DIR and frees associated resources. */
