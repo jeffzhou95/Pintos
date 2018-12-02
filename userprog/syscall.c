@@ -21,8 +21,10 @@ int myExec(char *file_name);
 void parse_argus(int *ptr, int *argu, int size);
 int write (int fd, const void *buffer, unsigned size);
 int read (int fd, const void *buffer, unsigned size);
-struct file* process_get_file (int fd);
-struct proc_file* process_get_proc_file (int fd);
+
+enum fd_search_filter {FD_FILE = 1, FD_DIRECTORY = 2};
+struct file* process_get_file (int fd, enum fd_search_filter flag);
+struct proc_file* process_get_proc_file (int fd, enum fd_search_filter flag);
 
 #ifdef FILESYS
 bool sys_chdir(const char *filename);
@@ -241,7 +243,7 @@ bool sys_readdir(int fd, char *name) {
 
     acquire_filesys_lock();
 
-    struct proc_file *pg_file = process_get_proc_file(fd);
+    struct proc_file *pg_file = process_get_proc_file(fd, FD_DIRECTORY);
     struct file *f = pg_file->ptr;
     if (f == NULL) goto done;
 
@@ -260,7 +262,7 @@ done:
 bool sys_isdir(int fd) {
     acquire_filesys_lock();
 
-    struct file *f = process_get_file(fd);
+    struct file *f = process_get_file(fd, FD_FILE | FD_DIRECTORY);
 
     bool res = inode_is_directory(file_get_inode(f));
 
@@ -271,7 +273,7 @@ bool sys_isdir(int fd) {
 int sys_inumber(int fd) {
     acquire_filesys_lock();
 
-    struct file *f = process_get_file(fd);
+    struct file *f = process_get_file(fd, FD_FILE | FD_DIRECTORY);
     int res = (int) inode_get_inumber(file_get_inode(f));
 
     release_filesys_lock();
@@ -334,7 +336,7 @@ int write (int fd, const void *buffer, unsigned size){
       return size;
     }
   acquire_filesys_lock();
-  struct file *f = process_get_file(fd);
+  struct file *f = process_get_file(fd, FD_FILE);
   if (!f)
     {
       release_filesys_lock();
@@ -358,7 +360,7 @@ int read (int fd, const void *buffer, unsigned size)
       return size;
   }
   acquire_filesys_lock();
-  struct file *f = process_get_file(fd);
+  struct file *f = process_get_file(fd, FD_FILE);
   if (!f)
     {
       release_filesys_lock();
@@ -369,27 +371,33 @@ int read (int fd, const void *buffer, unsigned size)
   return bytes;
 }
 
-struct proc_file* process_get_proc_file(int fd) {
+struct proc_file* process_get_proc_file(int fd, enum fd_search_filter flag) {
     struct thread *t = thread_current();
     struct list_elem *e;
 
     for (e = list_begin (&t->files); e != list_end (&t->files); e = list_next (e)){
         struct proc_file *pf = list_entry (e, struct proc_file, elem);
         if (fd == pf->fd){
-            return pf;
+            if ((pf->dir && (flag & FD_DIRECTORY))
+                || (pf->dir == NULL && (flag & FD_FILE))) {
+                return pf;
+            }
         }
     }
     return NULL;
 }
 
-struct file* process_get_file (int fd){
+struct file* process_get_file (int fd, enum fd_search_filter flag){
   struct thread *t = thread_current();
   struct list_elem *e;
 
   for (e = list_begin (&t->files); e != list_end (&t->files); e = list_next (e)){
           struct proc_file *pf = list_entry (e, struct proc_file, elem);
           if (fd == pf->fd){
-        return pf->ptr;
+              if ((pf->dir && (flag & FD_DIRECTORY))
+                  || (pf->dir == NULL && (flag & FD_FILE))) {
+                  return pf->ptr;
+              }
       }
   }
   return NULL;
