@@ -228,13 +228,14 @@ syscall_handler (struct intr_frame *f UNUSED){
     {
         parse_argus(ptr, argu, 1);
         f->eax = (uint32_t) sys_inumber(argu[0]);
+        break;
     }
 #endif
 
 
 
   	default:
-  	printf("No match\n");
+    printf("No match\n");
   }
 }
 
