@@ -534,3 +534,7 @@ bool inode_deallocate (struct inode *inode)
   ASSERT (num_sectors == 0);
   return true;
 }
+
+bool inode_is_directory(const struct inode *inode) {
+  return inode->data.is_dir;
+}

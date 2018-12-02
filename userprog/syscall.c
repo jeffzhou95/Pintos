@@ -7,8 +7,11 @@
 #include "process.h"
 #include <string.h>
 #include <stdlib.h>
+#include <filesys/filesys.h>
+#include <threads/malloc.h>
 #include "filesys/file.h"
 #include "filesys/inode.h"
+#include "filesys/directory.h"
 
 static void syscall_handler (struct intr_frame *);
 
@@ -19,10 +22,14 @@ void parse_argus(int *ptr, int *argu, int size);
 int write (int fd, const void *buffer, unsigned size);
 int read (int fd, const void *buffer, unsigned size);
 struct file* process_get_file (int fd);
+struct proc_file* process_get_proc_file (int fd);
 
 #ifdef FILESYS
 bool sys_chdir(const char *filename);
 bool sys_mkdir(const char *filename);
+bool sys_readdir(int fd, char *filename);
+bool sys_isdir(int fd);
+int sys_inumber(int fd);
 #endif
 
 struct lock filesys_lock;
@@ -102,6 +109,14 @@ syscall_handler (struct intr_frame *f UNUSED){
       struct proc_file *pfile = malloc(sizeof(*pfile));
       pfile->ptr = file_ptr;
       pfile->fd = thread_current()->fd_count;
+
+      struct inode *inode = file_get_inode(file_ptr);
+      if (inode != NULL && inode_is_directory(inode)) {
+          pfile->dir = dir_open(inode);
+      } else {
+          pfile->dir = NULL;
+      }
+
       thread_current()->fd_count++;
       list_push_back(&thread_current()->files, &pfile->elem);
       f->eax = pfile->fd;
@@ -116,6 +131,7 @@ syscall_handler (struct intr_frame *f UNUSED){
       struct proc_file *f = list_entry (e_close, struct proc_file, elem);
       if(f->fd == *(ptr + 1)) {
         file_close(f->ptr);
+        if (f->dir) dir_close(f->dir);
         list_remove(e_close);
         break;
       }
@@ -194,12 +210,22 @@ syscall_handler (struct intr_frame *f UNUSED){
     }
   case SYS_READDIR: // 17
     {
+        // fd, filename
+        parse_argus(ptr, argu, 2);
+        f->eax = (uint32_t) sys_readdir(argu[0], (char *) argu[1]);
+        break;
     }
   case SYS_ISDIR: // 18
     {
+        parse_argus(ptr, argu, 1);
+
+        f->eax = (uint32_t) sys_isdir(argu[0]);
+        break;
     }
   case SYS_INUMBER: // 19
     {
+        parse_argus(ptr, argu, 1);
+        f->eax = (uint32_t) sys_inumber(argu[0]);
     }
 #endif
 
@@ -208,6 +234,48 @@ syscall_handler (struct intr_frame *f UNUSED){
   	default:
   	printf("No match\n");
   }
+}
+
+bool sys_readdir(int fd, char *name) {
+    bool res = false;
+
+    acquire_filesys_lock();
+
+    struct proc_file *pg_file = process_get_proc_file(fd);
+    struct file *f = pg_file->ptr;
+    if (f == NULL) goto done;
+
+    struct inode *inode = file_get_inode(f);
+    if (inode == NULL) goto done;
+
+    if (! inode_is_directory(inode)) goto done;
+
+    res = dir_readdir(pg_file->dir, name);
+
+done:
+    release_filesys_lock();
+    return res;
+}
+
+bool sys_isdir(int fd) {
+    acquire_filesys_lock();
+
+    struct file *f = process_get_file(fd);
+
+    bool res = inode_is_directory(file_get_inode(f));
+
+    release_filesys_lock();
+    return res;
+}
+
+int sys_inumber(int fd) {
+    acquire_filesys_lock();
+
+    struct file *f = process_get_file(fd);
+    int res = (int) inode_get_inumber(file_get_inode(f));
+
+    release_filesys_lock();
+    return res;
 }
 
 int myExec(char *file_name) {
@@ -301,6 +369,18 @@ int read (int fd, const void *buffer, unsigned size)
   return bytes;
 }
 
+struct proc_file* process_get_proc_file(int fd) {
+    struct thread *t = thread_current();
+    struct list_elem *e;
+
+    for (e = list_begin (&t->files); e != list_end (&t->files); e = list_next (e)){
+        struct proc_file *pf = list_entry (e, struct proc_file, elem);
+        if (fd == pf->fd){
+            return pf;
+        }
+    }
+    return NULL;
+}
 
 struct file* process_get_file (int fd){
   struct thread *t = thread_current();

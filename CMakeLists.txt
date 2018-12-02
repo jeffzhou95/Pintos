@@ -52,6 +52,8 @@ set(SOURCE_FILES
         filesys/directory.h
         filesys/file.c
         filesys/file.h
+        filesys/cache.c
+        filesys/cache.h
         filesys/filesys.c
         filesys/filesys.h
         filesys/free-map.c
@@ -329,6 +331,7 @@ set(SOURCE_FILES
 
 add_executable(src ${SOURCE_FILES})
 add_definitions(-DUSERPROG)
+add_definitions(-DFILESYS)
 include_directories(lib)
 include_directories(lib/kernel)
 include_directories(${CMAKE_CURRENT_SOURCE_DIR})
