@@ -538,3 +538,7 @@ bool inode_deallocate (struct inode *inode)
 bool inode_is_directory(const struct inode *inode) {
   return inode->data.is_dir;
 }
+
+bool inode_is_removed(const struct inode *inode) {
+  return inode->removed;
+}

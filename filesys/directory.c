@@ -137,6 +137,12 @@ dir_open_path (const char *path)
     dir_close(curr);
     curr = next;
   }
+
+  if (inode_is_removed(dir_get_inode(curr))) {
+    dir_close(curr);
+    return NULL;
+  }
+
   return curr;
 }
 

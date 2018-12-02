@@ -84,9 +84,16 @@ filesys_open (const char *name)
 
   struct inode *inode = NULL;
 
-  if (dir != NULL)
+  if (dir == NULL) return NULL;
+
+  if (strlen(file_name) > 0) {
     dir_lookup (dir, file_name, &inode);
-  dir_close (dir);
+    dir_close (dir);
+  } else {
+    inode = dir_get_inode(dir);
+  }
+
+  if (inode == NULL || inode_is_removed(inode)) return NULL;
 
   return file_open (inode);
 }
