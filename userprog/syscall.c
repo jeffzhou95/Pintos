@@ -114,7 +114,7 @@ syscall_handler (struct intr_frame *f UNUSED){
 
       struct inode *inode = file_get_inode(file_ptr);
       if (inode != NULL && inode_is_directory(inode)) {
-          pfile->dir = dir_open(inode);
+          pfile->dir = dir_open(inode_reopen(inode));
       } else {
           pfile->dir = NULL;
       }
@@ -425,3 +425,11 @@ bool sys_mkdir(const char *filename)
 }
 #endif
 
+
+static bool page_available(void) {
+  // dirty hack: check if there remains a free page
+  void *p = palloc_get_page (0);
+  if(p == NULL) return false;
+  else palloc_free_page (p);
+  return true;
+}
